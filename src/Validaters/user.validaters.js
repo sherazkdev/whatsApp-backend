@@ -1,7 +1,7 @@
 import Joi from "joi";
 
 export const LoginUserValidate = Joi.object({
-    otp:Joi.number().min(4).max(4).required(),
+    otp:Joi.number().required(),
     inputValue:Joi.string().min(4).required()
 });
 export const OtpSendValidate = Joi.object({
@@ -14,13 +14,13 @@ export const RegisterUserValidate = Joi.object({
     avatar:Joi.string().required(),
     coverImage:Joi.string(),
     phoneNumber:Joi.string(),
-    otp:Joi.
+    otp:Joi.number().required(),
 })
 export const UpdateUserAvatarValidate = Joi.object({
-    cvatarPath:Joi.string().required()
+    avatar:Joi.string().required()
 });
 export const UpdateUserCoverImageValidate = Joi.object({
-    coverImagePath:Joi.string().required()
+    coverImage:Joi.string().required()
 });
 export const UpdateUserFullnameValidate = Joi.object({
     fullname:Joi.string().required()

@@ -42,11 +42,11 @@ class UserServices {
     // Find user by username or email or phone for client side
     FindUserByUsernameOrEmailOrPhone = async (payload) => {
         const {inputValue} = payload;
-        const matchedUsers = await this.userModel.find({
+        const matchedUsers = await this.userModel.findOne({
             $or : [
-                {email:String(inputValue)},
-                {phoneNumber:String(inputValue)},
-                {username:String(inputValue)}
+                {email:inputValue},
+                {phoneNumber:inputValue},
+                {username:inputValue}
             ],
             status:String("ENABLED"),
             isVerified:true
@@ -59,9 +59,9 @@ class UserServices {
 
     // Change Avatar
     ChangeUserAvatarById = async (payload) => {
-        const {avatarPath,_id} = payload;
+        const {avatar,_id} = payload;
         const changeAvatar = await this.userModel.findByIdAndUpdate(new mongoose.Types.ObjectId(_id),{
-            $set : {avatar:String(avatarPath)}
+            $set : {avatar:String(avatar)}
         },{new:true}).select("-refreshToken");
 
         return changeAvatar;
@@ -105,8 +105,18 @@ class UserServices {
             if(!otpComparing){
                 throw new ApiError(STATUS_CODES.UNAUTHORIZED,ERROR_MESSAGES.OTP_INVALID);
             }
-            const updateUserInfo = await this.userModel.findByIdAndUpdate(new mongoose.Types.ObjectId(checkUserIsExist._id),{
-                $set : {otp:null,otpExpiry:null,fullname:fullname,username,phoneNumber:phoneNumber,avatar:avatar,coverImage:coverImage},
+            const updateUserInfo = await this.userModel.findByIdAndUpdate(new mongoose.Types.ObjectId(user._id),{
+                $set : {
+                    otp:null,
+                    otpExpiry:null,
+                    fullname:fullname,
+                    username:username,
+                    phoneNumber:phoneNumber,
+                    avatar:avatar,
+                    coverImage:coverImage,
+                    isVerified:true,
+                    status:"ENABLED"
+                },
             }).select("-otp -otpExpiry -refreshToken");
             return updateUserInfo;
         }else {
@@ -119,8 +129,7 @@ class UserServices {
         const {inputValue,otp} = payload;
 
         const checkUserIsExist = await this.FindUserByUsernameOrEmailOrPhone({inputValue});
-
-        if(!checkUserIsExist){
+        if(!checkUserIsExist || checkUserIsExist.length < 1){
             throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.USER_NOT_FOUND);
         }
         if (checkUserIsExist.otpExpiry && checkUserIsExist.otpExpiry.getTime() > Date.now()) {
@@ -176,7 +185,7 @@ class UserServices {
 
         if(mode === "login"){
             // Mail options object sending
-            const sendMail = await new NodeMailer(to,body,subject);
+            const sendMail = await new NodeMailer().send({to,text:body,subject});
             if(!sendMail){
                 throw new ApiError(STATUS_CODES.INTERNAL_SERVER_ERROR,ERROR_MESSAGES.BAD_REQUEST);
             }
@@ -192,12 +201,11 @@ class UserServices {
             if(!sendMail){
                 throw new ApiError(STATUS_CODES.INTERNAL_SERVER_ERROR,ERROR_MESSAGES.BAD_REQUEST);
             }
-            console.log(to)
             const registerUser = await this.userModel.create({
                 email:to,
                 otp:body.otp,
                 otpExpiry: new Date(new Date().getTime() + ( 5 * 60 * 1000))
-            },{new:true});
+            });
             return registerUser;
         }
     };

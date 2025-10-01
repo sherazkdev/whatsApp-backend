@@ -19,7 +19,7 @@ class UserControllers extends UserServices {
             otp:req?.body?.otp
         };
         const verifyOtpAndUpdateUserObject = await this.LoginUser(userSavingPayload);
-        const {acaccessToken,refreshToken} = this.GenrateAccessAndRefreshToken({_id:verifyOtpAndUpdateUserObject._id});
+        const {accessToken,refreshToken} = await this.GenrateAccessAndRefreshToken({_id:verifyOtpAndUpdateUserObject._id});
         const cookiesOptions = {
             httpOnly:true,
             secure:true,
@@ -27,7 +27,7 @@ class UserControllers extends UserServices {
         };
 
         return res.status(STATUS_CODES.OK)
-        .cookie("accessToken",acaccessToken,cookiesOptions)
+        .cookie("accessToken",accessToken,cookiesOptions)
         .cookie("refreshToken",refreshToken,cookiesOptions)
         .json(new ApiResponse(verifyOtpAndUpdateUserObject,"Success: User Loggind In Successfully",true,STATUS_CODES.OK));
     };
@@ -37,16 +37,23 @@ class UserControllers extends UserServices {
         if(error){
             throw new ApiError(STATUS_CODES.NOT_FOUND,error.details[0].message);
         }
+        const checkUserIsAlreadyCreatedAccount = await this.FindUserByUsernameOrEmailOrPhone({inputValue:req?.body?.email});
+        if(checkUserIsAlreadyCreatedAccount){
+            throw new ApiError(STATUS_CODES.UNPROCESSABLE_ENTITY,ERROR_MESSAGES.USER_ALREADY_EXISTS);
+        }
         const user = await this.FindUserByEmailOrUsernameOrPhoneNumberForSSR({inputValue:req?.body?.email});
-        const {accessToken,refreshToken} = this.GenrateAccessAndRefreshToken({_id:user._id});
-
+        if(!user){
+            throw new ApiError(STATUS_CODES.UNAUTHORIZED,ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+        const {accessToken,refreshToken} = await this.GenrateAccessAndRefreshToken({_id:user._id});
         const registerUserPayload = {
             email:req?.body?.email,
             phoneNumber:req?.body?.phoneNumber,
-            username:req?.body?.email,
+            username:req?.body?.username,
             fullname:req?.body?.email,
             _id:user._id,
             avatar:req?.body?.avatar,
+            otp:req?.body?.otp,
             coverImage:req?.body?.coverImage,
         };
 
@@ -68,14 +75,16 @@ class UserControllers extends UserServices {
 
     HandleSendOtpForLogin = async (req,res) => {
         const {error,value} = OtpSendValidate.validate(req.body);
+        console.log(value)
         if(error){
             throw new ApiError(STATUS_CODES.NOT_FOUND,error?.details[0]?.message);
         }
-        const user = await this.FindUserByEmailOrUsernameOrPhoneNumberForSSR({inputValue:req?.body?.inputValue});
+        const user = await this.FindUserByUsernameOrEmailOrPhone({inputValue:req?.body?.inputValue});
         if(!user){
             throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.USER_NOT_FOUND);
         }
         const genrateVerificationToken = this.GenrateOtp();
+        console.log(genrateVerificationToken)
         const sendOtpPayload = {
             to:req?.body?.inputValue,
             mode:"login",
@@ -95,6 +104,10 @@ class UserControllers extends UserServices {
         const {error,value} = OtpSendValidate.validate(req.body);
         if(error){
             throw new ApiError(STATUS_CODES.NOT_FOUND,error?.details[0]?.message);
+        }
+        const user = await this.FindUserByEmailOrUsernameOrPhoneNumberForSSR({inputValue:req?.body?.inputValue});
+        if(user){
+            throw new ApiError(STATUS_CODES.UNAUTHORIZED,ERROR_MESSAGES.USER_ALREADY_EXISTS);
         }
         const genrateVerificationToken = this.GenrateOtp();
         const sendOtpPayload = {
@@ -118,7 +131,7 @@ class UserControllers extends UserServices {
         }
         const updateAvatarPayload = {
             _id:req.user._id,
-            avatarPath:req?.body?.avatarPath,
+            avatar:req?.body?.avatar,
         };
         const updateUserAvatar = await this.ChangeUserAvatarById(updateAvatarPayload);
         return res.status(STATUS_CODES.OK).json(new ApiResponse([],"Success: User Avatar Updated",true,STATUS_CODES.OK));

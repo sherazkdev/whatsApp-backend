@@ -86,14 +86,14 @@ UserSchema.pre("save",async function (next) {
 UserSchema.pre("findOneAndUpdate",async function (next) {
     
     try {
-        if(!this.isModified("otp")) {
-            return next();
+        const updatedUserDocument = this.getUpdate();
+
+        if(updatedUserDocument?.$set && updatedUserDocument.$set?.otp){
+            const salt = await bcrypt.genSalt(10);
+            updatedUserDocument.$set.otp = await bcrypt.hash(updatedUserDocument?.$set?.otp,salt);
+            this.setUpdate(updatedUserDocument);
         }
-        const salt = await bcrypt.genSalt(10);
-        const hashedOtp = await bcrypt.hash(this.otp,salt);
-        this.otp = hashedOtp;
         next();
-        
     } catch (error) {
         next(error);
     }
