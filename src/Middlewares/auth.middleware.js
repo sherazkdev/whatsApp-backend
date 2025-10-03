@@ -7,26 +7,33 @@ import mongoose from "mongoose";
 class Authentication{
 
     VerifyUserCookies = async (req,res,next) => {
-        const token = req.cookies?.accessToken;
+        try {
+
+        const token = req.cookies?.accessToken || req.headers.authorization?.replace("Bearer ", "");
         if(!token){
-            throw new ApiError(STATUS_CODES.UNAUTHORIZED,ERROR_MESSAGES.UNAUTHORIZED_ACCESS);
+            throw new ApiError(404,"Unauthorized Request");
         }
 
-        // Verify Json Web Token
-        const VerifyJwt = jwt.verify(token,process.env.ACCESS_TOKEN_SECRET);
-        if(!VerifyJwt)
-        {
-            throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.USER_NOT_FOUND);
+        const verifyJwt = jwt.verify(token,process.env.ACCESS_TOKEN_SECRET);
+
+        if(!verifyJwt) {
+            throw new ApiError(402,"Jwt Is Not Verifed")
         }
-        // Verify user
-        const user = await UserModel.findOne({_id:new mongoose.Types.ObjectId(VerifyJwt?._id),status:"ENABLED",isVerified:true}).select("-refreshToken -otp -otpExpiry");
-        if(!user){
-            throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.UNAUTHORIZED_ACCESS);
+        const checkTheUserInDb = await UserModel.findById(verifyJwt._id).select("-password -refreshToken");
+    
+        if(!checkTheUserInDb){
+            throw new ApiError(404,"User Not Found Error From verifyJsonWebToekns")
         }
 
-        // Asign req.user values for VeifyJwt object
-        req.user = user;
+        req.user = checkTheUserInDb;
+
         next();
+
+
+        } catch (error) {
+            throw new ApiError(401,error.message)
+        }
+
     }
 
 }

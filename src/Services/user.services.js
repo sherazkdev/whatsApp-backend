@@ -86,7 +86,7 @@ class UserServices {
     };
     
     // Change User About
-    ChangeUserAboutById = async () => {
+    ChangeUserAboutById = async (payload) => {
         const {_id,about} = payload;
         const changeUserAbout = await this.userModel.findByIdAndUpdate(new mongoose.Types.ObjectId(_id),{
             $set : {about:String(about)}
@@ -163,27 +163,27 @@ class UserServices {
 
     // Block User
     BlockToggleUserById = async (payload) => {
-        const {_id,blockId,blockToggle} = payload;
+        const {_id,blockId} = payload;
         const user = await this.FindUserById(_id);
-        if(!user){
-            throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.USER_NOT_FOUND);
-        }
-        if(user.blockedUsers.includes(blockId)){
-            user.blockedUsers = user.blockedUsers.filter( (blockedUser) => blockedUser.toString() !== blockId.toString());
+
+        if(user?.blockedUsers?.includes(blockId)){
+            const sliceBlockIdFromUserBlockList = await this.userModel.findByIdAndUpdate(_id,{
+                $pull:{blockedUsers:blockId}
+            },{new:true});
+            return sliceBlockIdFromUserBlockList;    
         }else{
-            user.blockedUsers = user.blockedUsers.push(blockId);
+            const pushBlockIdFromUserBlockList = await this.userModel.findByIdAndUpdate(_id,{
+                $push:{blockedUsers:blockId}
+            },{new:true});
+            return pushBlockIdFromUserBlockList;
         }
-
-        await user.save();
-        return user;    
-
     };
 
     // Send Otp
     SendOtpByEmail = async (payload) => {
-        const {body,to,subject,mode} = payload;
+        const {body,to,subject,type} = payload;
 
-        if(mode === "login"){
+        if(type === "Login"){
             // Mail options object sending
             const sendMail = await new NodeMailer().send({to,text:body,subject});
             if(!sendMail){
@@ -196,7 +196,7 @@ class UserServices {
                 throw new ApiError(STATUS_CODES.INTERNAL_SERVER_ERROR,ERROR_MESSAGES.BAD_REQUEST);
             }
             return user;
-        }else if(mode === "register"){
+        }else if(type === "Register"){
             const sendMail = await new NodeMailer().send({to,subject,text:body});
             if(!sendMail){
                 throw new ApiError(STATUS_CODES.INTERNAL_SERVER_ERROR,ERROR_MESSAGES.BAD_REQUEST);

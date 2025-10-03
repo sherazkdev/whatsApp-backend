@@ -1,6 +1,6 @@
 import UserServices from "../Services/user.services.js";
 import { ERROR_MESSAGES,STATUS_CODES } from "../Constants/responseConstants.js";
-import { LoginUserValidate, OtpSendValidate, RegisterUserValidate, UpdateUserAvatarValidate, UpdateUserCoverImageValidate, UpdateUserFullnameValidate } from "../Validaters/user.validaters.js";
+import { BlockedUserValidate, LoginUserValidate, OtpSendValidate, RegisterUserValidate, ResendOtpValidate, UpdateUserAboutValidate, UpdateUserAvatarValidate, UpdateUserCoverImageValidate, UpdateUserFullnameValidate } from "../Validaters/user.validaters.js";
 import ApiError from "../Utils/ApiError.js";
 import ApiResponse from "../Utils/ApiResponse.js";
 class UserControllers extends UserServices {
@@ -8,6 +8,7 @@ class UserControllers extends UserServices {
     constructor(){
         super();
     }
+
 
     HandleLoginUser = async (req,res) => {
         const {error} = LoginUserValidate.validate(req.body);
@@ -84,10 +85,10 @@ class UserControllers extends UserServices {
             throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.USER_NOT_FOUND);
         }
         const genrateVerificationToken = this.GenrateOtp();
-        console.log(genrateVerificationToken)
+        const sendingType = "Login";
         const sendOtpPayload = {
             to:req?.body?.inputValue,
-            mode:"login",
+            type:sendingType,
             subject:"WhatsApp Otp Verification",
             body:{
                 otp:genrateVerificationToken,
@@ -110,9 +111,10 @@ class UserControllers extends UserServices {
             throw new ApiError(STATUS_CODES.UNAUTHORIZED,ERROR_MESSAGES.USER_ALREADY_EXISTS);
         }
         const genrateVerificationToken = this.GenrateOtp();
+        const sendingType = "Register";
         const sendOtpPayload = {
             to:req?.body?.inputValue,
-            mode:"register",
+            mode:type,
             subject:"WhatsApp Otp Verification",
             body:{
                 otp:genrateVerificationToken,
@@ -125,8 +127,9 @@ class UserControllers extends UserServices {
     };
 
     HandleUpdateUserAvatar = async (req,res) => {
-        const {error} = UpdateUserAvatarValidate.validate(req?.body);
+        const {error} = UpdateUserAvatarValidate.validate(req?.body,{abortEarly:true});
         if(error){
+            console.log(error.details)
             throw new ApiError(STATUS_CODES.NOT_FOUND,error?.details[0]?.message);
         }
         const updateAvatarPayload = {
@@ -142,11 +145,13 @@ class UserControllers extends UserServices {
         if(error){
             throw new ApiError(STATUS_CODES.NOT_FOUND,error?.details[0]?.message);
         }
+        console.log(req.body)
         const updateFullnamePayload = {
             _id:req.user._id,
             fullname:req?.body?.fullname,
         };
-        const updateUserAvatar = await this.ChangeUserFullnameById(updateAvatarPayload);
+        const updateUserAvatar = await this.ChangeUserFullnameById(updateFullnamePayload);
+        console.log(updateUserAvatar)
         return res.status(STATUS_CODES.OK).json(new ApiResponse([],"Success: User Fullname Updated",true,STATUS_CODES.OK));        
     };
 
@@ -167,15 +172,84 @@ class UserControllers extends UserServices {
 
     };
 
-    HandleResendOtp = (req,res) => {};
+    HandleResendOtp = async (req,res) => {
+        const {error} = ResendOtpValidate.validate(req?.body,{abortEarly:true});
+        if(error){
+            error?.details?.map( (e) => { throw new ApiError(STATUS_CODES.NOT_FOUND,e.message) })
+        }
+        const genrateRandomOtp = this.GenrateOtp();
+        const sendingType = req?.body?.type;
+        const resendOtpPayload = {
+            type:sendingType,
+            to:req?.body?.inputValue,
+            body:{
+                email:req?.body?.inputValue,
+                otp:genrateRandomOtp
+            }
+        };
+        const updateUserDocumentAndSendOtp = await this.SendOtpByEmail(resendOtpPayload);
+        return res.status(STATUS_CODES.OK).json(new ApiResponse(updateUserDocumentAndSendOtp,"Success: otp resended succesfully",true,STATUS_CODES.OK))
+    };
 
-    HandleLogoutUser = (req,res) => {};
+    HandleLogoutUser = async (req,res) => {
+
+        const loggedInUserRemoveAccessToken = await this.userModel.findByIdAndUpdate(req?.user?._id,{
+            $set : {refreshToken:null}
+        });
+        const cookiesOptions = {
+            httpOnly:true,
+            secure:true,
+            sameSite:"None",
+        };
+        res.status(STATUS_CODES.OK)
+        .clearCookie("accessToken",cookiesOptions)
+        .clearCookie("refreshToken",cookiesOptions)
+        .json(new ApiResponse([],"Success: User sign out successfully",true,STATUS_CODES.OK))
+
+    };
 
     HandleGetUserProfile = (req,res) => {};
 
     HandleGetAllUsers = (req,res) => {};
 
-    HandleBlockUser = (req,res) => {};
+    HandleBlockUser = async (req,res) => {
+        const {error} = BlockedUserValidate.validate(req.body,{abortEarly:true});
+        if(error){
+            throw new ApiError(STATUS_CODES.NO_CONTENT,error.details[0].message);
+        }
+        const user = await this.FindUserById({_id:req?.user?._id});
+        const checkBlockedUser = await this.FindUserById({_id:req?.body?.blockId});
+        if(!checkBlockedUser){
+            throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+        const blockUserPayload = {
+            _id:user?._id,
+            blockId:checkBlockedUser?._id,
+        };
+
+        const blockedUserUpdatedDocument = await this.BlockToggleUserById(blockUserPayload);
+
+        // fincaly return blocked user response
+        return res.status(STATUS_CODES.OK).json(new ApiResponse(blockedUserUpdatedDocument,"Success: User Blocked successfully",true,200));
+    };
+
+    HandleUpdateUserAbout = async (req,res) => {
+        const {error} = await UpdateUserAboutValidate.validate(req.body,{abortEarly:true});
+        if(error){
+            throw new ApiError(STATUS_CODES.NO_CONTENT,error.details[0].message);
+        }
+        const user = await this.FindUserById({_id:req.user._id});
+        const updateAboutPayload = {
+            about:req?.body?.about,
+            _id:user?._id
+        };
+        const updateAboutSection = await this.ChangeUserAboutById(updateAboutPayload);
+        return res.status(STATUS_CODES.OK).json( new ApiResponse(updateAboutSection,"Success: user About updated Successfully",true,STATUS_CODES.OK))
+    };
+
+    HandleRefreshAccessToken = async (req,res) => {
+
+    };
     
 }
 
