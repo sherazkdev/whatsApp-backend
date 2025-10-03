@@ -1,13 +1,13 @@
 import e from "express";
-import AsyncHandler from "../Utils/AsyncHandler.js";
+import AsyncHandler from "../../Utils/AsyncHandler.js";
 
 const userRoute = e.Router();
 
 // Middlewares
-import authMiddleware from "../Middlewares/auth.middleware.js";
+import authMiddleware from "../../Middlewares/auth.middleware.js";
 
 // Controllers
-import userController from "../Controllers/user.controllers.js";
+import userController from "../../Controllers/user.controllers.js";
 
 // Secured Routes
 userRoute.route("/signIn-send-otp").post(AsyncHandler(userController.HandleSendOtpForLogin)); /** after fill number || email and user sending otp on email optional*/

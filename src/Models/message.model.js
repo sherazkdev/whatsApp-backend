@@ -10,7 +10,6 @@ const MessageSchema = new mongoose.Schema({
     receiverId:{
         type:mongoose.Schema.Types.ObjectId,
         ref:"User",
-        required:true,
     },
     groupId:{
         type:mongoose.Schema.Types.ObjectId,
@@ -22,9 +21,12 @@ const MessageSchema = new mongoose.Schema({
         ref:"Status",
         default:null
     },
+    replyTo : {
+        type: mongoose.Schema.Types.ObjectId, ref: "Message"
+    },
     type:{
         type:String,
-        enum : ["text","image","file","video"],
+        enum : ["TEXT","IMAGE","FILE","VIDEO","FORWARDED"],
         required:true
     },
     content:{
@@ -32,16 +34,15 @@ const MessageSchema = new mongoose.Schema({
     },
     seen : {
         type:String,
-        enum:["seen","delivered","sent"],
+        enum:["SEEN","DELIVERED","SENT"],
         default:"sent",
     },
-    replyTo : [
-        {
-            messageId: { type: mongoose.Schema.Types.ObjectId, ref: "Message" },  
-            replyDate: { type: Date, default: Date.now },
-            media: { type: mongoose.Schema.Types.ObjectId, ref: 'Media' }
-        }
-    ]
+    status : {
+        type:String,
+        enum:["DELETED","DISABLED","ENABLED"],
+        default:"ENABLED"
+    }
+    
 },{timestamps:true});
 
 // Message Model#
