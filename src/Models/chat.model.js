@@ -10,7 +10,13 @@ const chatSchema = new mongoose.Schema({
     lastMessage:{
         type:mongoose.Schema.Types.ObjectId,
         ref:"User"
-    }
+    },
+    clearedBy: [
+        {
+          userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+          clearedAt: { type: Date, default: Date.now }
+        }
+    ],
 },{timestamps:true});
 
 const chatModel = mongoose.model("Chat",chatSchema);

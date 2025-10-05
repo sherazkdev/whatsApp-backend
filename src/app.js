@@ -4,8 +4,9 @@ import cookieParser from "cookie-parser";
 import errorHandler from "./Middlewares/errorHandler.middleware.js";
 
 // Routes Importing
-import userRoutes from "./Routes/user.routes.js";
+import userRoutes from "./Routes/v1/user.routes.js";
 import messageRouter from "./Routes/v1/message.routes.js";
+import chatRouter from "./Routes/v1/chat.routes.js";
 
 // App
 const app = e();
@@ -22,6 +23,7 @@ app.use(cors({
 // Routes
 app.use("/api/v1/users",userRoutes);
 app.use("/api/v1/messages",messageRouter);
+app.use("/api/v1/chats",chatRouter);
 
 
 // error handler

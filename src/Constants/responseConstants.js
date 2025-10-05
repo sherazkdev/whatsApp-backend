@@ -54,6 +54,10 @@ const SUCCESS_MESSAGES = {
   CHANNEL_MEMBER_ADDED: "Member added to channel successfully.",
   CHANNEL_MEMBER_REMOVED: "Member removed from channel successfully.",
 
+  // CHAT
+  CHAT_CREATED : "Chat created successfully",
+  CHAT_DELETED : "chatch deleted successfully",
+
   GROUP_CREATED: "Group created successfully.",
   GROUP_UPDATED: "Group updated successfully.",
   GROUP_DELETED: "Group deleted successfully.",
@@ -96,6 +100,12 @@ const ERROR_MESSAGES = {
   GROUP_NOT_FOUND: "Group not found.",
   MEMBER_ALREADY_EXISTS: "Member already exists in this channel/group.",
   MEMBER_NOT_FOUND: "Member not found in this channel/group.",
+
+  
+  // CHAT
+  CHAT_NOT_FOUND : "Chat not found",
+  CHAT_ALREADY_EXISTS : "Chat already exists",
+
 
   // FAVORITE / STAR
   FAVORITE_NOT_FOUND: "Favorite not found.",

@@ -41,7 +41,13 @@ const MessageSchema = new mongoose.Schema({
         type:String,
         enum:["DELETED","DISABLED","ENABLED"],
         default:"ENABLED"
-    }
+    },
+    deleteFor: [
+        {
+            type:mongoose.Schema.Types.ObjectId,
+            ref:"User",
+        }
+    ]
     
 },{timestamps:true});
 

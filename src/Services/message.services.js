@@ -1,32 +1,67 @@
-import messageModle from "../Models/message.model.js";
+// message Model and chat model
+import messageModel from "../Models/message.model.js";
+import chatModel from "../Models/chat.model.js";
+
+// Services
 import mongoose from "mongoose";
 import mediaModel from "../Models/media.model.js";
-import { ERROR_MESSAGES,STATUS_CODES,SUCCESS_MESSAGES } from "../Constants/responseConstants";
-import ApiError from "../Utils/ApiError";
+import { ERROR_MESSAGES,STATUS_CODES,SUCCESS_MESSAGES } from "../Constants/responseConstants.js";
+import ApiError from "../Utils/ApiError.js";
+import ChatServices from "./chat.services.js";
 
-class MessageServices {
+class MessageServices extends ChatServices{
     constructor(){
-        this.messageModle = messageModle;
+        super();
+        this.messageModel = messageModel;
         this.mediaModel = mediaModel;
     }
 
+    
     // Send message 
     SendMessage = async (payload) => {
         const {
             receiverId,
             senderId,
             content,
+            type,
+            mediaUrl,
+            fileName
         } = payload;
 
-        const createdSendMessage = await this.messageModle.create({
+        // check chat is exist
+        const chatRoomPayload = {
+            senderId,
+            receiverId
+        }
+        const chatRoom = await this.FindChatByUserAndReceiverId(chatRoomPayload);
+        if(!chatRoom){
+            throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.CHAT_NOT_FOUND);
+        }
+
+        const createdSendMessage = await this.messageModel.create({
             senderId:new mongoose.Types.ObjectId(senderId),
             receiverId:new mongoose.Types.ObjectId(receiverId),
             content:content,
-            type:"text",
-            seen:"sent",
+            type:"TEXT",
+            seen:"SENT",
         });
 
-        return createdSendMessage;
+        const updateChatLastMessage = await this.chatModel.findByIdAndUpdate(new mongoose.Types.ObjectId(receiverId),{
+            $set : {lastMessage:createdSendMessage._id}
+        },{new:true});
+        
+        let media = null;
+
+        if(["IMAGE","VIDEO","FILE"].includes(type)){
+            media = await this.mediaModel.create({
+                fileName:fileName,
+                mediaUrl:mediaUrl,
+                fileType:type,
+                uploadedBy:senderId,
+            });
+        }
+        
+        return {createdSendMessage,media};
 
 
     };
@@ -41,7 +76,7 @@ class MessageServices {
         if(!message){
             throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.MESSAGE_NOT_FOUND);
         }
-        // const updateMessage = await this.messageModle.findByIdAndUpdate(new mongoose.Types.ObjectId(message?._id),{
+        // const updateMessage = await this.messageModel.findByIdAndUpdate(new mongoose.Types.ObjectId(message?._id),{
         //     $set : {content:content}
         // },{new:true});
         message.content = content;
@@ -53,7 +88,7 @@ class MessageServices {
     GetUserMessages = async (payload) => {
         const {currentlyloggedInUser,receiverId} = payload;
 
-        const userSendedAndRecivedMessages = await this.messageModle.aggregate([
+        const userSendedAndRecivedMessages = await this.messageModel.aggregate([
             {
                 $match : {
                     $expr : {
@@ -108,13 +143,15 @@ class MessageServices {
     // Reply message by messageId
     ReplyMessage = async (payload) => {
         const {_id,content,type,mediaUrl,fileName,senderId,receiverId} = payload;
+        console.log(payload)
 
-        const repliedMessage = await this.messageModle.create({
+        const repliedMessage = await this.messageModel.create({
             content:content,
             replyTo:new mongoose.Types.ObjectId(_id),
             receiverId:new mongoose.Types.ObjectId(receiverId),
             senderId:new mongoose.Types.ObjectId(senderId),
-            type:type
+            type:type,
+            seen:"SENT"
         });
         let media = null;
 
@@ -130,13 +167,10 @@ class MessageServices {
         return {repliedMessage,media};
     };
 
-    // Report message by messageId
-    ReportMessage = async (payload) => {};
-
     // Update message seen status
     UpdateMessageSeenStatus = async (payload) => {
-        const {seen,_id} = payload;
-        const message = await this.FindMessageByMessageId({_id});
+        const {seen,messageId} = payload;
+        const message = await this.FindMessageByMessageId({_id:messageId});
         if(!message){
             throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.MESSAGE_NOT_FOUND);
         }
@@ -147,20 +181,22 @@ class MessageServices {
 
     // Delete all message by userId
     DeleteAllMessages = async (payload) => {
-        const {_id} = payload;
-        const loggedInUserDeleteAllMessages = await this.messageModle.deleteMany({
-            senderId:new mongoose.Types.ObjectId(_id)
+        const {senderId,chatId} = payload;
+        // check chatroom is exist
+        const chat = await this.FindChatById(chatId);
+        if(!chat){
+            throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.CHAT_NOT_FOUND);
+        }
+        const updateMessageDeleteForStatus = await this.messageModel.findByIdAndUpdate(new mongoose.Types.ObjectId(senderId),{
+            $push : {deleteFor:new mongoose.Types.ObjectId(senderId)}
         });
-        const loggedInUserDeleteMedia = await this.mediaModel.deleteMany({
-            uploadedBy:new mongoose.Types.ObjectId(_id);
-        })
-        return true;
+        return updateMessageDeleteForStatus;
     };
 
     // Forward message and messages
     ForwardMessage = async (payload) => {
         const {message,senderId,receiverId} = payload;
-        const forwardMessageDocument = await this.messageModle.create({
+        const forwardMessageDocument = await this.messageModel.create({
             content:message.content,
             senderId:senderId,
             receiverId:receiverId,
@@ -185,7 +221,7 @@ class MessageServices {
     // Send group message
     SendGroupMessage = async (payload) => {
         const {groupId,senderId,receiverId,content,type,mediaUrl} = payload;
-        const createMessageForGroupDocument = await this.messageModle.create({
+        const createMessageForGroupDocument = await this.messageModel.create({
             content:content,
             groupId:new mongoose.Types.ObjectId(groupId),
             senderId:senderId,
@@ -222,7 +258,7 @@ class MessageServices {
     // Send status message
     SendStatusMessage = async (payload) => {
         const {statusId,senderId,receiverId,content} = payload;
-        const sendStatusMessage = await this.messageModle.create({
+        const sendStatusMessage = await this.messageModel.create({
             content:content,
             senderId:senderId,
             receiverId:receiverId,
@@ -234,7 +270,7 @@ class MessageServices {
     // Find message by message _id
     FindMessageByMessageId = async (payload) => {
         const {_id} = payload;
-        const message = await this.messageModle.findById(new mongoose.Types.ObjectId(_id));
+        const message = await this.messageModel.findById(new mongoose.Types.ObjectId(_id));
         return message;
     };
 }
