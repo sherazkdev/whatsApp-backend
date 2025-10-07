@@ -107,6 +107,18 @@ class ChatServices {
             reci
         }
     }
+
+    verifyChatOwnership = async (payload) => {
+        const {owner,chatId} = payload;
+        const chat = await this.FindChatById({_id:chatId});
+        if(!chat){
+            throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.CHAT_NOT_FOUND);
+        }
+        if(chat.members?.includes(owner) !== true){
+            throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.CHAT_OWNER_NOT_FOUND)
+        }
+        return chat;
+    }
 }
 
 export default ChatServices;

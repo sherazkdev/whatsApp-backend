@@ -100,6 +100,7 @@ class MessageControllers extends MessageServices  {
         const forwardMessagePayload = {
             messageId:value?.messageId,
             chatId:value?.chatId,
+            forwardToChatId:value?.forwardToChatId,
             sender:req?.user?._id
         };
         const createForwardedDocument = await this.ForwardMessage(forwardMessagePayload);
@@ -156,15 +157,9 @@ class MessageControllers extends MessageServices  {
         if(error){
             throw new ApiError(STATUS_CODES.NOT_FOUND,error.details)
         }
-        const chat = await this.FindChatById({_id:value?.chatId});
-        if(!chat){
-            throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES?.CHAT_NOT_FOUND);
-        }
-        const receiver = chat.members.filter( (id) => id.toString().trim() !== req?.user?._id?.toString()?.trim());
-
         const getUserMessagesPayload = {
-            currentlyloggedInUser:req?.user?._id,
-            receiverId:receiver[0]
+            sender:req?.user?._id,
+            chatId:value?.chatId
         };
         const userMessages = await this.GetUserMessages(getUserMessagesPayload);
         return res.status(STATUS_CODES.OK).json( new ApiResponse(userMessages,SUCCESS_MESSAGES.DATA_FETCHED,true,STATUS_CODES.OK));

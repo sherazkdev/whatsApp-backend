@@ -50,4 +50,5 @@ export const GetUserMessageValidate = Joi.object({
 export const ForwardMessageValidate = Joi.object({
     messageId:Joi.string().min(24).max(24).required(),
     chatId:Joi.string().required().min(1),
+    forwardToChatId:Joi.string().min(24).max(24).required(),
 });

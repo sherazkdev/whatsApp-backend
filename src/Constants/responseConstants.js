@@ -105,6 +105,8 @@ const ERROR_MESSAGES = {
   // CHAT
   CHAT_NOT_FOUND : "Chat not found",
   CHAT_ALREADY_EXISTS : "Chat already exists",
+  CHAT_OWNER_NOT_FOUND : "Chat owner is not found",
+  
 
 
   // FAVORITE / STAR

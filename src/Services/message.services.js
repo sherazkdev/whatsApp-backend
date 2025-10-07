@@ -41,7 +41,7 @@ class MessageServices extends ChatServices{
             seen:"SENT",
         });
 
-        const updateChatLastMessage = await this.chatModel.findByIdAndUpdate(new mongoose.Types.ObjectId(receiverId),{
+        const updateChatLastMessage = await this.chatModel.findByIdAndUpdate(new mongoose.Types.ObjectId(sender),{
             $set : {lastMessage:createdSendMessage._id}
         },{new:true});
         
@@ -83,109 +83,105 @@ class MessageServices extends ChatServices{
 
     // User messages by userId
     GetUserMessages = async (payload) => {
-        const { currentlyloggedInUser, receiverId } = payload;
+        const { chatId,sender } = payload;
+        const verifyChatOwnershipPayload = {
+            chatId,
+            owner:sender
+        }
+        const chatRoomIsExist = await this.verifyChatOwnership(verifyChatOwnershipPayload);
+        if(!chatRoomIsExist){
+            throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.CHAT_NOT_FOUND)
+        }
+        const [receiver] = chatRoomIsExist?.members?.filter( (_id) => _id.toString().trim() !== sender.toString().trim());
         
         const userSendedAndRecivedMessages = await this.messageModel.aggregate([
             {
+                 
                 $match: {
                     $expr: {
                         $or: [
                             // Normal messages (sender ↔ receiver)
                             {
                                 $and: [
-                                    { $eq: ["$senderId", new mongoose.Types.ObjectId(currentlyloggedInUser)] },
-                                    { $eq: ["$receiverId", new mongoose.Types.ObjectId(receiverId)] }
+                                    { $eq: ["$sender", new mongoose.Types.ObjectId(sender)] },
+                                    { $eq: ["$chatId", new mongoose.Types.ObjectId(chatRoomIsExist?._id)] }
                                 ]
                             },
                             {
                                 $and: [
-                                    { $eq: ["$senderId", new mongoose.Types.ObjectId(receiverId)] },
-                                    { $eq: ["$receiverId", new mongoose.Types.ObjectId(currentlyloggedInUser)] }
+                                    { $eq: ["$sender", new mongoose.Types.ObjectId(receiver)] },
+                                    { $eq: ["$chatId", new mongoose.Types.ObjectId(chatRoomIsExist?._id)] }
                                 ]
                             }
                         ]
                     }
                 }
             },
-            {
-                $lookup : {
-                    from : "users",
-                    localField:"senderId",
-                    foreignField:"_id",
-                    as:"senderId"
-                }
-            },
-            {
-                $lookup : {
-                    from : "users",
-                    localField:"receiverId",
-                    foreignField:"_id",
-                    as:"receiverId"
-                }
-            },
-            {
-                $lookup : {
-                    from : "media",
-                    let : {messageId:"$_id",messageType:"$type"},
-                    pipeline : [
-                        {
-                            $match : {
-                                $expr : {
-                                    $and : [
-                                        {$eq : ["$messageId","$$messageId"]},
-                                        {$eq : ["$fileType","$$messageType"]}
-                                    ]
-                                }
-                            }
-                        }
-                    ],
-                    as:"media"
-                }
-            },
-            {
-                $lookup: {
-                  from: "messages",
-                  localField: "replyTo",
-                  foreignField: "_id",
-                  as: "replyToMessage"
-                }
-            },  
-            {
-                $addFields : {
-                    senderId : {
-                        $first : "$senderId"
-                    },
+            // {
+            //     $lookup : {
+            //         from : "users",
+            //         localField:"sender",
+            //         foreignField:"_id",
+            //         as:"sender"
+            //     }
+            // },
+            // {
+            //     $lookup : {
+            //         from : "media",
+            //         let : {messageId:"$_id",messageType:"$type"},
+            //         pipeline : [
+            //             {
+            //                 $match : {
+            //                     $expr : {
+            //                         $and : [
+            //                             {$eq : ["$messageId","$$messageId"]},
+            //                             {$eq : ["$filetype","$$messageType"]}
+            //                         ]
+            //                     }
+            //                 }
+            //             }
+            //         ],
+            //         as:"media"
+            //     }
+            // },
+            // {
+            //     $lookup: {
+            //       from: "messages",
+            //       localField: "replyTo",
+            //       foreignField: "_id",
+            //       as: "replyToMessage"
+            //     }
+            // },  
+            // {
+            //     $addFields : {
+            //         sender : {
+            //             $first : "$sender"
+            //         },
                     
-                  replyToMessage: { $first: "$replyToMessage" },
-                    receiverId : {
-                        $first : "$receiverId"
-                    },
-                    media : {
-                        $first : "$media"
-                    },
+            //        replyToMessage: { $first: "$replyToMessage" },
+            //         media : {
+            //             $first : "$media"
+            //         },
                     
-                }
-            },
-            { $sort: { createdAt: 1 } },
-            {
-                $project : {
-                    _id:1,
-                    content:1,
-                    type:1,
-                    deleteFor:1,
-                    seen:1,
-                    replyToMessage:1,
-                    status:1,
-                    "senderId._id":1,
-                    "senderId.avatar":1,
-                    "senderId.fullname":1,
-                    "receiverId._id":1,
-                    "receiverId.avatar":1,
-                    "receiverId.fullname":1,
-                    media:1,
-                    createdAt:1,
-                }
-            }
+            //     }
+            // },
+            // { $sort: { createdAt: 1 } },
+            // {
+            //     $project : {
+            //         _id:1,
+            //         content:1,
+            //         type:1,
+            //         deleteFor:1,
+            //         seen:1,
+            //         replyToMessage:1,
+            //         status:1,
+            //         "sender._id":1,
+            //         "sender.avatar":1,
+            //         "sender.fullname":1,
+            //         media:1,
+            //         createdAt:1,
+            //     }
+            // }
         ]); 
 
         return userSendedAndRecivedMessages;
@@ -270,24 +266,27 @@ class MessageServices extends ChatServices{
 
     // Forward message and messages
     ForwardMessage = async (payload) => {
-        const {messageId,sender,chatId} = payload;
+        const {messageId,sender,chatId,forwardToChatId} = payload;
 
-        const chatRoom = await this.FindChatById({_id:chatId});
-        if(!chatRoom){
-            const creatChat = await this.CreateChat(chatRoomPayload);
+        // const chatRoom = await this.verifyChatOwnership({chatId:chatId,owner:sender});
+        const verifyForwardChatIsExist = await this.verifyChatOwnership({chatId:forwardToChatId,owner:sender});
+        const message = await this.FindMessageByMessageId({_id:messageId});
+        if(!message){
+            throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.MESSAGE_NOT_FOUND);
         }
         const forwardMessageDocument = await this.messageModel.create({
             content:message.content,
-            sender:senderId,
-            chatId:c,
+            sender:sender,
+            chatId:forwardToChatId,
             type:message?.type,
-            seen:"SENT"
+            seen:"SENT",
         });
         
         let media = null;
 
         if(["IMAGE","VIDEO","FILE"].includes(message.type)){
             const mediaDocument = await this.mediaModel.findOne({messageId:new mongoose.Types.ObjectId(message?._id)});
+            console.log(mediaDocument)
             if(!mediaDocument){
                 throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES?.MESSAGE_SEND_FAILED)
             }
