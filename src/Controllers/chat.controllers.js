@@ -17,13 +17,15 @@ class ChatController extends ChatServices {
             throw new ApiError(STATUS_CODES.NOT_FOUND,error?.details[0].message);
         }
         const createChatPayload = {
-            receiverId:value?.receiverId,
-            senderId:req?.user?._id,
+            receiver:value?.receiverId,
+            sender:req?.user?._id,
         };
         const createChatDocument = await this.CreateChat(createChatPayload);
         return res.status(STATUS_CODES.CREATED).json( new ApiResponse(createChatDocument,SUCCESS_MESSAGES.CHAT_CREATED,true,STATUS_CODES.CREATED) );
     };
+
     HandleDelete = async (req,res) => {};
+    
     HandleGetUserChats = async (req,res) => {};
 
 }

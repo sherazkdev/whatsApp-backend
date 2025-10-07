@@ -20,29 +20,24 @@ class MessageServices extends ChatServices{
     // Send message 
     SendMessage = async (payload) => {
         const {
-            receiverId,
-            senderId,
+            chatId,
+            sender,
             content,
             type,
             mediaUrl,
-            fileName
+            filename
         } = payload;
 
-        // check chat is exist
-        const chatRoomPayload = {
-            senderId,
-            receiverId
-        }
-        const chatRoom = await this.FindChatByUserAndReceiverId(chatRoomPayload);
+        const chatRoom = await this.FindChatById({_id:chatId});
         if(!chatRoom){
             throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.CHAT_NOT_FOUND);
         }
 
         const createdSendMessage = await this.messageModel.create({
-            senderId:new mongoose.Types.ObjectId(senderId),
-            receiverId:new mongoose.Types.ObjectId(receiverId),
+            sender:new mongoose.Types.ObjectId(sender),
+            chatId:new mongoose.Types.ObjectId(chatRoom?._id),
             content:content,
-            type:"TEXT",
+            type:type.toUpperCase(),
             seen:"SENT",
         });
 
@@ -54,10 +49,11 @@ class MessageServices extends ChatServices{
 
         if(["IMAGE","VIDEO","FILE"].includes(type)){
             media = await this.mediaModel.create({
-                fileName:fileName,
+                filename:filename,
                 mediaUrl:mediaUrl,
-                fileType:type,
+                filetype:type.toUpperCase(),
                 uploadedBy:senderId,
+                messageId:createdSendMessage?._id
             });
         }
         
@@ -71,14 +67,15 @@ class MessageServices extends ChatServices{
 
     // Update message
     UpdateMessage = async (payload) => {
-        const {_id,content} = payload;
-        const message = await this.FindMessageByMessageId({_id});
+        const {messageId,chatId,content} = payload;
+        const chatRoom = await this.FindChatById({_id:chatId});
+        if(!chatRoom){
+            throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.CHAT_NOT_FOUND);
+        }
+        const message = await this.FindMessageByMessageId({_id:messageId});
         if(!message){
             throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.MESSAGE_NOT_FOUND);
         }
-        // const updateMessage = await this.messageModel.findByIdAndUpdate(new mongoose.Types.ObjectId(message?._id),{
-        //     $set : {content:content}
-        // },{new:true});
         message.content = content;
         await message.save();
         return message;
@@ -86,52 +83,123 @@ class MessageServices extends ChatServices{
 
     // User messages by userId
     GetUserMessages = async (payload) => {
-        const {currentlyloggedInUser,receiverId} = payload;
-
+        const { currentlyloggedInUser, receiverId } = payload;
+        
         const userSendedAndRecivedMessages = await this.messageModel.aggregate([
             {
-                $match : {
-                    $expr : {
-                        $and : [
-                            { $eq: ["$senderId",new mongoose.Types.ObjectId(currentlyloggedInUser)]},
-                            { $eq: ["$receiverId",new mongoose.Types.ObjectId(receiverId)]}
+                $match: {
+                    $expr: {
+                        $or: [
+                            // Normal messages (sender ↔ receiver)
+                            {
+                                $and: [
+                                    { $eq: ["$senderId", new mongoose.Types.ObjectId(currentlyloggedInUser)] },
+                                    { $eq: ["$receiverId", new mongoose.Types.ObjectId(receiverId)] }
+                                ]
+                            },
+                            {
+                                $and: [
+                                    { $eq: ["$senderId", new mongoose.Types.ObjectId(receiverId)] },
+                                    { $eq: ["$receiverId", new mongoose.Types.ObjectId(currentlyloggedInUser)] }
+                                ]
+                            }
                         ]
                     }
                 }
             },
             {
-                
-            },
-            {
                 $lookup : {
-                    from: "users",
-                    localField: "senderId",
-                    foreignField: "_id",
+                    from : "users",
+                    localField:"senderId",
+                    foreignField:"_id",
                     as:"senderId"
                 }
             },
             {
                 $lookup : {
-                    from: "users",
-                    localField: "receiverId",
-                    foreignField: "_id",
+                    from : "users",
+                    localField:"receiverId",
+                    foreignField:"_id",
                     as:"receiverId"
                 }
             },
             {
-                $project: {
+                $lookup : {
+                    from : "media",
+                    let : {messageId:"$_id",messageType:"$type"},
+                    pipeline : [
+                        {
+                            $match : {
+                                $expr : {
+                                    $and : [
+                                        {$eq : ["$messageId","$$messageId"]},
+                                        {$eq : ["$fileType","$$messageType"]}
+                                    ]
+                                }
+                            }
+                        }
+                    ],
+                    as:"media"
+                }
+            },
+            {
+                $lookup: {
+                  from: "messages",
+                  localField: "replyTo",
+                  foreignField: "_id",
+                  as: "replyToMessage"
+                }
+            },  
+            {
+                $addFields : {
+                    senderId : {
+                        $first : "$senderId"
+                    },
+                    
+                  replyToMessage: { $first: "$replyToMessage" },
+                    receiverId : {
+                        $first : "$receiverId"
+                    },
+                    media : {
+                        $first : "$media"
+                    },
+                    
+                }
+            },
+            { $sort: { createdAt: 1 } },
+            {
+                $project : {
                     _id:1,
                     content:1,
                     type:1,
+                    deleteFor:1,
+                    seen:1,
+                    replyToMessage:1,
+                    status:1,
+                    "senderId._id":1,
+                    "senderId.avatar":1,
+                    "senderId.fullname":1,
+                    "receiverId._id":1,
+                    "receiverId.avatar":1,
+                    "receiverId.fullname":1,
+                    media:1,
+                    createdAt:1,
                 }
             }
-        ])
+        ]); 
+
+        return userSendedAndRecivedMessages;
     };
+
 
     // Delete message by messageId
     DeleteMessage = async (payload) => {
-        const {_id} = payload;
-        const message = await this.FindMessageByMessageId({_id});
+        const {messageId,chatId} = payload;
+        const chatRoom = await this.FindChatById({_id:chatId});
+        if(!chatRoom){
+            throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.CHAT_NOT_FOUND);
+        }
+        const message = await this.FindMessageByMessageId({_id:messageId});
         if(!message){
             throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.MESSAGE_NOT_FOUND);
         }
@@ -142,14 +210,13 @@ class MessageServices extends ChatServices{
 
     // Reply message by messageId
     ReplyMessage = async (payload) => {
-        const {_id,content,type,mediaUrl,fileName,senderId,receiverId} = payload;
-        console.log(payload)
+        const {messageId,content,type,mediaUrl,filename,sender,chatId} = payload;
 
         const repliedMessage = await this.messageModel.create({
             content:content,
-            replyTo:new mongoose.Types.ObjectId(_id),
-            receiverId:new mongoose.Types.ObjectId(receiverId),
-            senderId:new mongoose.Types.ObjectId(senderId),
+            replyTo:new mongoose.Types.ObjectId(messageId),
+            chatId:new mongoose.Types.ObjectId(chatId),
+            sender:new mongoose.Types.ObjectId(sender),
             type:type,
             seen:"SENT"
         });
@@ -157,10 +224,10 @@ class MessageServices extends ChatServices{
 
         if(["IMAGE","VIDEO","FILE"].includes(type)){
             media = await this.mediaModel.create({
-                fileName:fileName,
+                filename:filename,
                 mediaUrl:mediaUrl,
-                fileType:type,
-                uploadedBy:senderId,
+                filetype:type,
+                messageId:repliedMessage?._id,
             });
         }
         
@@ -169,10 +236,18 @@ class MessageServices extends ChatServices{
 
     // Update message seen status
     UpdateMessageSeenStatus = async (payload) => {
-        const {seen,messageId} = payload;
+        const {seen,messageId,chatId} = payload;
+
+        const chatRoom = await this.FindChatById({_id:chatId});
+        if(!chatRoom){
+            throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.CHAT_NOT_FOUND);
+        }
         const message = await this.FindMessageByMessageId({_id:messageId});
         if(!message){
             throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.MESSAGE_NOT_FOUND);
+        }
+        if(["SENT","SEEN","DELIVERED"].includes(seen.toUpperCase()) !== true){
+            throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.UNAUTHORIZED_ACCESS);
         }
         message.seen = seen;
         await message.save();
@@ -181,37 +256,46 @@ class MessageServices extends ChatServices{
 
     // Delete all message by userId
     DeleteAllMessages = async (payload) => {
-        const {senderId,chatId} = payload;
+        const {sender,chatId} = payload;
         // check chatroom is exist
         const chat = await this.FindChatById(chatId);
         if(!chat){
             throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.CHAT_NOT_FOUND);
         }
-        const updateMessageDeleteForStatus = await this.messageModel.findByIdAndUpdate(new mongoose.Types.ObjectId(senderId),{
-            $push : {deleteFor:new mongoose.Types.ObjectId(senderId)}
+        const updateMessageDeleteForStatus = await this.messageModel.findOneAndUpdate({sender:new mongoose.Types.ObjectId(sender),chatId:new mongoose.Types.ObjectId(chatId)},{
+            $push : {deleteFor:new mongoose.Types.ObjectId(sender)}
         });
         return updateMessageDeleteForStatus;
     };
 
     // Forward message and messages
     ForwardMessage = async (payload) => {
-        const {message,senderId,receiverId} = payload;
+        const {messageId,sender,chatId} = payload;
+
+        const chatRoom = await this.FindChatById({_id:chatId});
+        if(!chatRoom){
+            const creatChat = await this.CreateChat(chatRoomPayload);
+        }
         const forwardMessageDocument = await this.messageModel.create({
             content:message.content,
-            senderId:senderId,
-            receiverId:receiverId,
-            type:"FORWARDED",
+            sender:senderId,
+            chatId:c,
+            type:message?.type,
             seen:"SENT"
         });
         
         let media = null;
 
         if(["IMAGE","VIDEO","FILE"].includes(message.type)){
+            const mediaDocument = await this.mediaModel.findOne({messageId:new mongoose.Types.ObjectId(message?._id)});
+            if(!mediaDocument){
+                throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES?.MESSAGE_SEND_FAILED)
+            }
             media = await this.mediaModel.create({
-                fileName:fileName,
-                mediaUrl:mediaUrl,
-                fileType:type,
-                uploadedBy:senderId,
+                filename:mediaDocument?.filename,
+                mediaUrl:mediaDocument?.mediaUrl,
+                messageId:mediaDocument?.messageId,
+                filetype:mediaDocument?.filetype,
             });
         };
 
@@ -243,7 +327,6 @@ class MessageServices extends ChatServices{
 
     // Pin message
     PinMessage = async (payload) => {
-
     };
 
     // Star message
@@ -273,6 +356,7 @@ class MessageServices extends ChatServices{
         const message = await this.messageModel.findById(new mongoose.Types.ObjectId(_id));
         return message;
     };
+
 }
 
 export default MessageServices;

@@ -2,12 +2,12 @@ import mongoose from "mongoose";
 
 // Media Schema for uploading files, images, videos, etc.
 const MediaSchema = new mongoose.Schema({
-    fileType: {
+    filetype: {
         type: String,
-        enum: ["image", "video", "audio", "file"],  
+        enum: ["IMAGE", "VIDEO", "AUDIO", "FILE"],  
         required: true,
     },
-    fileName: {
+    filename: {
         type: String,
         required: true, 
     },
@@ -19,10 +19,6 @@ const MediaSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",  
         required: true,
-    },
-    createdAt: {
-        type: Date,
-        default: Date.now,
     },
 }, {timestamps: true});
 

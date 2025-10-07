@@ -19,17 +19,17 @@ class MessageControllers extends MessageServices  {
             throw new ApiError(STATUS_CODES.NOT_FOUND,error.details);
         }
         const sendMessagePayload = {
-            receiverId:value.receiverId,
-            senderId:req.user.id,
+            chatId:value.chatId,
+            sender:req.user.id,
             content:value.content,
             type:value.type,
             mediaUrl:value.mediaUrl,
-            fileName:value.fileName,
-            receiver:value.receiver,
+            filename:value.fileName,
         };
         const sendMessageResponse = await this.SendMessage(sendMessagePayload);
         return res.status(STATUS_CODES.CREATED).json(new ApiResponse(sendMessageResponse.createdSendMessage,SUCCESS_MESSAGES.MESSAGE_SENT,true,STATUS_CODES.CREATED));
     };
+    
     HandleUpdateMessage = async (req,res) => {
         const {error,value} = UpdateMessageValidate.validate(req.body);
         if(error){
@@ -37,7 +37,8 @@ class MessageControllers extends MessageServices  {
         }
         const updateMessagePayload = {
             content:value?.content,
-            _id:value?._id
+            messageId:value?.messageId,
+            chatId:value?.chatId
         };
         const updateMessageDocument = await this.UpdateMessage(updateMessagePayload);
         return res.status(STATUS_CODES.OK).json( new ApiResponse(updateMessageDocument,SUCCESS_MESSAGES.MESSAGE_UPDATED,true,STATUS_CODES.ok));
@@ -49,7 +50,8 @@ class MessageControllers extends MessageServices  {
             throw new ApiError(STATUS_CODES.NOT_FOUND,error.details[0].message);
         }
         const deleteMessagePayload = {
-            _id:value?._id
+            messageId:value?.messageId,
+            chatId:value?.chatId
         };
         const deletMessageDocuemnt = await this.DeleteMessage(deleteMessagePayload);
         return res.status(STATUS_CODES.OK).json( new ApiResponse([],SUCCESS_MESSAGES.MESSAGE_DELETED,true,STATUS_CODES.OK));
@@ -61,13 +63,13 @@ class MessageControllers extends MessageServices  {
             throw new ApiError(STATUS_CODES.NOT_FOUND,error.details);
         }
         const replyMessagePayload = {
-            _id:value?._id,
+            messageId:value?.messageId,
             content:value?.content,
-            receiverId:value?.receiverId,
-            senderId:req?.user?._id,
+            chatId:value?.chatId,
+            sender:req?.user?._id,
             type:value?.type,
             mediaUrl:value?.mediaUrl,
-            fileName:value?.mediaUrl
+            filename:value?.filename
         };
         const replyMessageDocument = await this.ReplyMessage(replyMessagePayload);
         return res.status(STATUS_CODES.OK).json( new ApiResponse(replyMessageDocument,SUCCESS_MESSAGES.MESSAGE_REPLIED,true,STATUS_CODES.OK));
@@ -82,7 +84,7 @@ class MessageControllers extends MessageServices  {
         }
         const deleteUserChatPayload = {
             chatId:value?.chatId,
-            senderId:req.user?._id
+            sender:req.user?._id
         };
 
         const deleteUserChatMessageDocument = await this.DeleteAllMessages(deleteUserChatPayload);
@@ -94,13 +96,10 @@ class MessageControllers extends MessageServices  {
         if(error){
             throw new ApiError(STATUS_CODES.NOT_FOUND,error.details)
         }
-        const message = await this.FindMessageByMessageId({_id:value?.messageId});
-        if(!message){
-            throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.MESSAGE_NOT_FOUND);
-        }
+
         const forwardMessagePayload = {
-            message,
-            receiverId:value?.receiverId,
+            messageId:value?.messageId,
+            chatId:value?.chatId,
             sender:req?.user?._id
         };
         const createForwardedDocument = await this.ForwardMessage(forwardMessagePayload);
@@ -115,7 +114,8 @@ class MessageControllers extends MessageServices  {
         }
         const updateMessageSeenStatusPayload = {
             seen:value?.seen,
-            messageId:value?.messageId
+            messageId:value?.messageId,
+            chatId:value?.chatId
         };
         const updateMessageSeenStatusDocument = await this.UpdateMessageSeenStatus(updateMessageSeenStatusPayload);
         return res.status(STATUS_CODES.OK).json( new ApiResponse(updateMessageSeenStatusDocument,SUCCESS_MESSAGES.MESSAGE_SEEN,true,STATUS_CODES.OK));
@@ -131,7 +131,7 @@ class MessageControllers extends MessageServices  {
             content:value?.content,
             type:value?.type,
             mediaUrl:value?.mediaUrl,
-            fileName:value?.fileName
+            fileName:value?.fileName,
         };
         const sendGroupMessageDocument = await this.SendGroupMessage(sendGroupMessagePayload);
         return res.status(STATUS_CODES.OK).json( new ApiResponse(sendGroupMessageDocument,SUCCESS_MESSAGES.MESSAGE_SENT,true,STATUS_CODES.OK));
@@ -156,9 +156,15 @@ class MessageControllers extends MessageServices  {
         if(error){
             throw new ApiError(STATUS_CODES.NOT_FOUND,error.details)
         }
+        const chat = await this.FindChatById({_id:value?.chatId});
+        if(!chat){
+            throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES?.CHAT_NOT_FOUND);
+        }
+        const receiver = chat.members.filter( (id) => id.toString().trim() !== req?.user?._id?.toString()?.trim());
+
         const getUserMessagesPayload = {
             currentlyloggedInUser:req?.user?._id,
-            receiverId:value?.receiverId
+            receiverId:receiver[0]
         };
         const userMessages = await this.GetUserMessages(getUserMessagesPayload);
         return res.status(STATUS_CODES.OK).json( new ApiResponse(userMessages,SUCCESS_MESSAGES.DATA_FETCHED,true,STATUS_CODES.OK));

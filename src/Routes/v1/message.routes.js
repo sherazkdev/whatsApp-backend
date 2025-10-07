@@ -19,7 +19,8 @@ messageRouter.route("/update-message-seen-status").patch(AsyncHandler(authMiddle
 messageRouter.route("/delete-user-all-message").delete(AsyncHandler(authMiddleware.VerifyUserCookies,MessageControllers.HandleDeleteUserMessages));
 messageRouter.route("/forward-message").post(AsyncHandler(authMiddleware.VerifyUserCookies,MessageControllers.HandleForwardMessage));
 messageRouter.route("/send-group-message").post(AsyncHandler(authMiddleware.VerifyUserCookies,MessageControllers.HandleSendMessage));
-// messageRouter.route("/pin-message").post();
+messageRouter.route("/get-user-messages").get(AsyncHandler(authMiddleware.VerifyUserCookies,MessageControllers.HandleGetUserMessages));
+// messageRouter.route("/pin-message").post();  
 // messageRouter.route("/star-message").patch();
 // messageRouter.route("/update-message-reaction").patch();
 // messageRouter.route("/set-message-reaction").post();

@@ -2,19 +2,15 @@ import mongoose from "mongoose";
 
 // Message Schema
 const MessageSchema = new mongoose.Schema({
-    senderId:{
+    sender:{
         type:mongoose.Schema.Types.ObjectId,
         ref:"User",
         required:true,
     },
-    receiverId:{
+    chatId:{
         type:mongoose.Schema.Types.ObjectId,
-        ref:"User",
-    },
-    groupId:{
-        type:mongoose.Schema.Types.ObjectId,
-        ref:"Group",
-        default:null,
+        ref:"Chat",
+        required:true
     },
     statusId:{
         type:mongoose.Schema.Types.ObjectId,
@@ -37,17 +33,17 @@ const MessageSchema = new mongoose.Schema({
         enum:["SEEN","DELIVERED","SENT"],
         default:"sent",
     },
-    status : {
-        type:String,
-        enum:["DELETED","DISABLED","ENABLED"],
-        default:"ENABLED"
-    },
     deleteFor: [
         {
             type:mongoose.Schema.Types.ObjectId,
             ref:"User",
         }
-    ]
+    ],
+    status : {
+        type:String,
+        enum:["DELETED","DISABLED","ENABLED"],
+        default:"ENABLED"
+    },
     
 },{timestamps:true});
 

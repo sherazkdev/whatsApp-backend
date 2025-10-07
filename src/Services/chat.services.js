@@ -13,15 +13,15 @@ class ChatServices {
 
     // chat creating proccess
     CreateChat = async (payload) => {
-        const {senderId,receiverId} = payload;
+        const {sender,receiver} = payload;
         const createChat = await this.chatModel.create({
-            members:[new mongoose.Types.ObjectId(senderId),new mongoose.Types.ObjectId(receiverId)]
+            members:[new mongoose.Types.ObjectId(sender),new mongoose.Types.ObjectId(receiver)]
         });
         return createChat;
     };
 
     DeleteChat = async (payload) => {
-        const {senderId,chatId} = payload;
+        const {sender,chatId} = payload;
         const checkChatRoomIsExist = await this.FindChatById({_id:chatId});
         if(!checkChatRoomIsExist){
             throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.CHAT_NOT_FOUND)
@@ -29,7 +29,7 @@ class ChatServices {
         /** deleteChatFromCurrenltyLoggedInUser */
         const deleteChatFromCurrenltyLoggedInUser = await this.chatModel.findByIdAndUpdate(new mongoose.Types.ObjectId(checkChatRoomIsExistE._id),{
             $push : {clearedBy:{
-                userId:new mongoose.Types.ObjectId(senderId),
+                userId:new mongoose.Types.ObjectId(sender),
                 clearAt: new Date(),
             }}
         },{new:true});
@@ -39,12 +39,6 @@ class ChatServices {
     FindChatById = async (payload) => {
         const {_id} = payload;
         const chat = await this.chatModel.findById(new mongoose.Types.ObjectId(_id));
-        return chat;
-    };
-
-    FindChatByUserAndReceiverId = async (payload) => {
-        const {senderId,receiverId} = payload;
-        const chat = await this.chatModel.findOne({members:{$all : [ new mongoose.Types.ObjectId(senderId),new mongoose.Types.ObjectId(receiverId)]}});
         return chat;
     };
 
@@ -101,6 +95,18 @@ class ChatServices {
         ]);
         return chats;
     };
+
+    FindChatMemberAndReceiver = async (payload) => {
+        const {loggedInUser,chatId} = payload;
+        const chat = await this.FindChatById({_id:chatId});
+        if(!chat){
+            throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.CHAT_NOT_FOUND);
+        }
+        const members = {
+            sender:chat?.filter( (id) => id.toString().trim() === loggedInUser.toString().trim()),
+            reci
+        }
+    }
 }
 
 export default ChatServices;
