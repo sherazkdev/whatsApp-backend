@@ -5,20 +5,38 @@ import chatModel from "../Models/chat.model.js";
 import mongoose from "mongoose";
 import { STATUS_CODES,ERROR_MESSAGES,SUCCESS_MESSAGES } from "../Constants/responseConstants.js";
 import ApiError from "../Utils/ApiError.js";
+import UserServices from "./user.services.js";
 
-class ChatServices {
+class ChatServices extends UserServices{
     constructor(){
+        super();
         this.chatModel = chatModel;
     }
 
     // chat creating proccess
     CreateChat = async (payload) => {
         const {sender,receiver} = payload;
+        const verifyTheUserIsExist = await this.FindUserById({_id:receiver});
+        if(!verifyTheUserIsExist){
+            throw new ApiError(STATUS_CODES.UNAUTHORIZED,ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+        const checkTheUserChatIsExist = await this.CheckUserAndReceiverChatExist(payload);
+        if(checkTheUserChatIsExist){
+            throw new ApiError(STATUS_CODES.UNAUTHORIZED,ERROR_MESSAGES.CHAT_ALREADY_EXISTS)
+        }
         const createChat = await this.chatModel.create({
             members:[new mongoose.Types.ObjectId(sender),new mongoose.Types.ObjectId(receiver)]
         });
         return createChat;
     };
+
+    CheckUserAndReceiverChatExist = async (payload) => {
+        const {sender,receiver} = payload;
+        const checkTheUserChatIsExist = await this.chatModel.findOne({
+            members: { $all: [sender, receiver] }
+        });
+        return checkTheUserChatIsExist
+    }
 
     DeleteChat = async (payload) => {
         const {sender,chatId} = payload;
@@ -28,10 +46,7 @@ class ChatServices {
         }
         /** deleteChatFromCurrenltyLoggedInUser */
         const deleteChatFromCurrenltyLoggedInUser = await this.chatModel.findByIdAndUpdate(new mongoose.Types.ObjectId(checkChatRoomIsExistE._id),{
-            $push : {clearedBy:{
-                userId:new mongoose.Types.ObjectId(sender),
-                clearAt: new Date(),
-            }}
+            $push : {clearedBy:new mongoose.Types.ObjectId(sender)}
         },{new:true});
         return deleteChatFromCurrenltyLoggedInUser;
     };
@@ -44,6 +59,7 @@ class ChatServices {
 
     GetUserChats = async (payload) => {
         const {_id} = payload;
+        
         const chats = await this.chatModel.aggregate([
             {
                 $match : {
@@ -104,8 +120,9 @@ class ChatServices {
         }
         const members = {
             sender:chat?.filter( (id) => id.toString().trim() === loggedInUser.toString().trim()),
-            reci
-        }
+            receiver:chat?.filter( (id) => id.toString().trim() !== loggedInUser.toString().trim())
+        };
+        return members;
     }
 
     verifyChatOwnership = async (payload) => {

@@ -1,16 +1,16 @@
 import mongoose from "mongoose";
 
 // services
-import StatusServices  from "../Services/status.services.js";
+import ChannelServices  from "../Services/channel.services.js";
 import { CreateChatValidate, DeleteChatValidate } from "../Validaters/chat.validaters.js";
 import ApiError from "../Utils/ApiError.js";
 import { ERROR_MESSAGES, STATUS_CODES, SUCCESS_MESSAGES } from "../Constants/responseConstants.js";
 import ApiResponse from "../Utils/ApiResponse.js";
 
-class StatusControllers extends StatusServices {
+class ChannelControllers extends ChannelServices {
     constructor(){
         super();
     }
 }
 
-export default new StatusControllers;
+export default new ChannelControllers;

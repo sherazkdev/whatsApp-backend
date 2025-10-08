@@ -1,3 +1,4 @@
+
 import mongoose from "mongoose";
 
 // Group Schema
@@ -20,22 +21,30 @@ const GroupSchema = new mongoose.Schema({
     }, 
     groupType: {
         type: String,
-        enum: ["private", "public"], 
-        default: "private",
+        enum: ["PRIVATE", "PUBLIC"], 
+        default: "PRIVATE",
+    },
+    groupAvatar:{
+        type:String,
+        default:null
     },
     description: {
         type: String,
         default: null,
     },
     settings: {
-        allowMessage: {
+        sendMessages: {
             type: Boolean,
             default: true,  
         },
-        allowMedia: {
+        addOtherMembers : {
             type: Boolean,
-            default: true,
+            default: true,  
         },
+        editGroupSettings : {
+            type: Boolean,
+            default: true,  
+        }
     },
 },{timestamps:true});
 

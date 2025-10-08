@@ -8,7 +8,7 @@ const StatusSchema = new mongoose.Schema({
     },
     type: {
         type:String,
-        enum : ["text","image","file","video"],
+        enum : ["IMAGE","TEXT","VIDEO"],
         required:true,
     },
     media : {

@@ -2,6 +2,10 @@ import mongoose from "mongoose";
 
 // Channel Schema
 const ChannelSchema = new mongoose.Schema({
+    channelAvatar:{
+        type:String,
+        default:"",
+    },
     name: {
         type: String,
         required: true,
@@ -11,12 +15,12 @@ const ChannelSchema = new mongoose.Schema({
         type: String,
         default: "",  
     },
-    creator: {
+    admins: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
         required: true,  
     },
-    subscribers: [
+    followerss: [
         {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User", 

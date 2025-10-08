@@ -1,6 +1,14 @@
 import mongoose from "mongoose";
 
 const chatSchema = new mongoose.Schema({
+    isGroup:{
+        type:Boolean,
+        default:false,
+    },
+    groupId:{
+        type:mongoose.Schema.Types.ObjectId,
+        ref:"Group",
+    },
     members:[
         {
             type:mongoose.Schema.Types.ObjectId,
@@ -13,8 +21,8 @@ const chatSchema = new mongoose.Schema({
     },
     clearedBy: [
         {
-          userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-          clearedAt: { type: Date, default: Date.now }
+            type:mongoose.Schema.Types.ObjectId,
+            ref:"User"
         }
     ],
 },{timestamps:true});
