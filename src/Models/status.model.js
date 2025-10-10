@@ -11,7 +11,7 @@ const StatusSchema = new mongoose.Schema({
         enum : ["IMAGE","TEXT","VIDEO"],
         required:true,
     },
-    media : {
+    mediaUrl : {
         type:mongoose.Schema.Types.ObjectId,
         ref:"Media",
         default:null,
@@ -26,11 +26,11 @@ const StatusSchema = new mongoose.Schema({
                 type:mongoose.Schema.Types.ObjectId,
                 ref:"User"
             },
-            timestamp: {
-                type: Date,
-                default: Date.now,
-            },
-        }
+            createdAt:{
+                type:Date,
+                default:Date.now
+            }
+        },
     ],
     isExpire:{
         type:Date,

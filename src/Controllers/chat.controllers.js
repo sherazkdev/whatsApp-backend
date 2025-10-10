@@ -34,7 +34,7 @@ class ChatController extends ChatServices {
             sender:req?.user?._id
         };
         const updateDeleteChatDocument = await this.DeleteChat(deleteChatPayload);
-        return res.status(STATUS_CODES.OK).json( new ApiResponse([],SUCCESS_MESSAGES.CHAT_DELETED,true,STATUS_CODES.OK))
+        return res.status(STATUS_CODES.OK).json( new ApiResponse(updateDeleteChatDocument,SUCCESS_MESSAGES.CHAT_DELETED,true,STATUS_CODES.OK))
     };
     
     HandleGetUserChats = async (req,res) => {
@@ -42,7 +42,7 @@ class ChatController extends ChatServices {
             _id:req?.user?._id
         }
         const chats = await this.GetUserChats(getUserChatsPayload);
-        return res.status(STATUS_CODES.OK).json( new ApiResponse(STATUS_CODES.OK,SUCCESS_MESSAGES.DATA_FETCHED,true,STATUS_CODES.OK));
+        return res.status(STATUS_CODES.OK).json( new ApiResponse(chats,SUCCESS_MESSAGES.DATA_FETCHED,true,STATUS_CODES.OK));
     };
 
 }

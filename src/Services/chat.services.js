@@ -76,7 +76,7 @@ class ChatServices extends UserServices{
                         {
                             $match:{
                                 $expr : {
-                                    $in : ["$$members","$_id"]
+                                    $in : ["$_id","$$members"]
                                 }
                             }
                         }
@@ -98,13 +98,11 @@ class ChatServices extends UserServices{
             {
                 $project : {
                     _id:1,
-                    members:{
-                        "members.fullname":1,
-                        "members.lastSeen":1,
-                        "members._id":1,
-                        "members.avatar":1,
-                        "members.createdAt":1,
-                    },
+                    "members.fullname":1,
+                    "members.lastSeen":1,
+                    "members._id":1,
+                    "members.avatar":1,
+                    "members.createdAt":1,
                     lastMessage:1,
                 }
             }
@@ -134,6 +132,12 @@ class ChatServices extends UserServices{
         if(chat.members?.includes(owner) !== true){
             throw new ApiError(STATUS_CODES.NOT_FOUND,ERROR_MESSAGES.CHAT_OWNER_NOT_FOUND)
         }
+        return chat;
+    }
+
+    FindChatByGroupId = async (payload) => {
+        const {_id} = payload;
+        const chat = await this.chatModel.findOne({groupId:new mongoose.Types.ObjectId(_id)});
         return chat;
     }
 }

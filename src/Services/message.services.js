@@ -41,10 +41,11 @@ class MessageServices extends ChatServices{
             seen:"SENT",
         });
 
-        const updateChatLastMessage = await this.chatModel.findByIdAndUpdate(new mongoose.Types.ObjectId(sender),{
+        const updateChatLastMessage = await this.chatModel.findByIdAndUpdate(new mongoose.Types.ObjectId(chatId),{
             $set : {lastMessage:createdSendMessage._id}
         },{new:true});
         
+
         let media = null;
 
         if(["IMAGE","VIDEO","FILE"].includes(type)){

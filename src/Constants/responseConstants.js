@@ -55,15 +55,17 @@ const SUCCESS_MESSAGES = {
   CHANNEL_MEMBER_REMOVED: "Member removed from channel successfully.",
 
   // CHAT
-  CHAT_CREATED : "Chat created successfully",
-  CHAT_DELETED : "chatch deleted successfully",
+  CHAT_CREATED : "Chat created successfully.",
+  CHAT_DELETED : "chatch deleted successfully.",
 
   GROUP_CREATED: "Group created successfully.",
   GROUP_UPDATED: "Group updated successfully.",
   GROUP_DELETED: "Group deleted successfully.",
   GROUP_MEMBER_ADDED: "Member added to group successfully.",
   GROUP_MEMBER_REMOVED: "Member removed from group successfully.",
-
+  GROUP_ADMIN_ADDED : "Admin added to group successfully.",
+  GROUP_ADMIN_REMOVED : "Admin removed from group successfully.",
+  
   // FAVORITE / STAR
   ADDED_TO_FAVORITES: "Added to favorites successfully.",
   REMOVED_FROM_FAVORITES: "Removed from favorites successfully.",
@@ -84,10 +86,18 @@ const ERROR_MESSAGES = {
   INVALID_CREDENTIALS: "Invalid username or password.",
   UNAUTHORIZED_ACCESS: "You are not authorized to perform this action.",
   FORBIDDEN_ACTION: "This action is forbidden.",
+  ALLOWED_ADMIN: "Only group admins are allowed to perform this action.",
 
   // AUTH / OTP
   OTP_EXPIRED: "OTP has expired. Please request again.",
   OTP_INVALID: "Invalid OTP entered.",
+
+  CHAT_AND_GROUP_NOT_FOUND : "Chat and Group not found.",
+  CHAT_MEMBER_OR_GROUP_MEMBER_NOT_FOUND : "Chat member or Group member not found.",
+  MEMBER_OR_GROUP_NOT_FOUND : "member or Group not found.",
+  CHAT_MEMBER_OR_GROUP_MEMBER_ALREADY_EXIST : "Chat member or Group member already exist.",
+
+  MISSING_FIELDS : "Missing fields",
 
   // MESSAGES
   MESSAGE_NOT_FOUND: "Message not found.",
